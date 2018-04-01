@@ -17,7 +17,7 @@ rostopic info topic_name
 
 %% Read sensor data
 
-%%% read lidar data
+%% read lidar data
 if ismember('/scan', rostopic('list'))
     laser_sub = rossubscriber('/scan');
 end
@@ -30,7 +30,7 @@ tic;
       plot(sscan_datacan);
   end
 
-%%% read images
+%% read images
 % if images captured by Pi camera.
 if ismember('/raspicam_node/image/compressed', rostopic('list'))
     image_sub = rossubscriber('/raspicam_node/image/compressed');
@@ -53,6 +53,9 @@ tic;
       imshow(readImage(image_compressed))
   end
 lines = detect_straight_lines(readImage(image_compressed));
+
+
+
 %% Move the Robot
 % controller parameters
 parameters.Krho = 0.5;

@@ -1,23 +1,33 @@
 clear;  close all;
 
-
+picNames = dir('*.jpg');
+for i = 1:1
+    
 %% Read image
-img = imread('007.jpg'); %read image
+filename = picNames(i).name;
+img = imread(filename); %read image
+img = img(350:end,:,:);
+
+% hsv_I = rgb2hsv(img);
+% subplot(221); imshow(img)
+% subplot(222); imshow(hsv_I(:,:,1))
+% subplot(223); imshow(hsv_I(:,:,2))
+% subplot(224); imshow(hsv_I(:,:,3))
+
 
 % imshow(img);
 
 % Turn img to gray
 gray = rgb2gray(img); %Convert to Grayscale image
 
+
 % Binarize image
 T = adaptthresh(gray, 0.6);
-BW = imbinarize(gray,T);
+bw = imbinarize(gray,T);
 
 % Gaussian to remove noise
-BW = double(BW);
-BW_after = imgaussfilt(BW, 24); 
-
-
+bw = double(bw);
+bw_after = imgaussfilt(bw, 20); 
 
 
 %% filter out noise by remove darker pixels
@@ -26,7 +36,7 @@ BW_after = imgaussfilt(BW, 24);
 
 
 %% Detect edges
-bw_Canny = edge(BW_after,'Canny'); % Detect edges using Canny
+bw_Canny = edge(bw_after,'Canny',0.6,20); % Detect edges using Canny
 % figure
 
 
@@ -36,7 +46,7 @@ bw_Canny = edge(BW_after,'Canny'); % Detect edges using Canny
 numpeaks = 7; %Specify the number of peaks
 P  = houghpeaks(H,numpeaks);
 
-lines = houghlines(bw_Canny,T,R,P,'FillGap',80,'MinLength',150);
+lines = houghlines(bw_Canny,T,R,P,'FillGap',200,'MinLength',100);
 
 % % 
 % figure(1); 
@@ -44,8 +54,8 @@ lines = houghlines(bw_Canny,T,R,P,'FillGap',80,'MinLength',150);
 
 % figure(2); 
 figure
-subplot(221);imshow(BW); title("Adaptive threshold");
-subplot(222);imshow(BW_after); title("Use Gaussian filter to remove noise");
+subplot(221);imshow(bw); title("Adaptive threshold");
+subplot(222);imshow(bw_after); title("Use Gaussian filter to remove noise");
 subplot(223);imshow(bw_Canny); title("After canny edge detection");
 subplot(224); imshow(bw_Canny); title('Use Hough transform to detect lines')
 hold on
@@ -68,6 +78,8 @@ for k = 1:length(lines)
    end
 end
 
+hold on
+
 
 % 
 % figure
@@ -87,6 +99,23 @@ end
 % plot(T(P(:,2)),R(P(:,1)),'s','color','white');
 
 
+fprintf('This is the %d picture \n', i);
 
+% Find the desired point
+% We set the desired point to the midpoint of the two intersections 
+% of y = 250 & y = -cot(theta)*x + csc(theta)*rho
+if size(lines,2) > 1
+x1 = floor((250 - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
+x2 = floor((250 - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
+x_mid = (x1+x2)/2; 
+plot(x_mid, 250, '*', x1, 250, '*', x2, 250, '*' );
+end
+
+pause(1);
+
+
+close all;
+
+end
 
 
