@@ -1,24 +1,34 @@
-% close all;
+clear;  close all;
 % function lines = detect_straight_lines(img)
 
 %% Read image
 img = imread('combined_lanes.jpg'); %read image
-bw = rgb2gray(img); %Convert to Grayscale image
+img = img(1001:end,:,:);
+% imshow(img);
 
-% figure
-% imshow(bw);
+% Turn img to gray
+gray = rgb2gray(img); %Convert to Grayscale image
+
+% Binarize image
+T = adaptthresh(gray, 0.6);
+BW = imbinarize(gray,T);
+
+% Gaussian to remove noise
+h_gaosi = fspecial('gaussian',70,30);  
+BW_after = imfilter(BW, h_gaosi); 
+
+
+
 
 %% filter out noise by remove darker pixels
-dark_pixel_ind = find(bw < 120);
-bw(dark_pixel_ind) = 0;
+% dark_pixel_ind = find(bw < 120);
+% bw(dark_pixel_ind) = 0;
 
-% figure
-% imshow(bw);
 
 %% Detect edges
-bw_Canny = edge(bw,'Canny'); %Detect edges using Canny
+bw_Canny = edge(BW_after,'Canny'); % Detect edges using Canny
 % figure
-% imshow(bw_Canny);
+
 
 %% Detect lines using hough transform
 [H,T,R] = hough(bw_Canny,'RhoResolution',0.5,'ThetaResolution',0.5);
@@ -26,14 +36,18 @@ bw_Canny = edge(bw,'Canny'); %Detect edges using Canny
 numpeaks = 7; %Specify the number of peaks
 P  = houghpeaks(H,numpeaks);
 
-lines = houghlines(bw_Canny,T,R,P,'FillGap',40,'MinLength',500);
+lines = houghlines(bw_Canny,T,R,P,'FillGap',100,'MinLength',10);
 
-% 
-figure(1); 
-subplot(211); imshow(bw); title('Original Image')
+% % 
+% figure(1); 
+% subplot(211); imshow(bw); title('Original Image')
 
 % figure(2); 
-subplot(212); imshow(bw_Canny); title('Canny')
+figure
+subplot(221);imshow(BW); title("Adaptive threshold");
+subplot(222);imshow(BW_after); title("Use Gaussian filter to remove noise");
+subplot(223);imshow(bw_Canny); title("After canny edge detection");
+subplot(224); imshow(bw_Canny); title('Use Hough transform to detect lines')
 hold on
 
 %% Plot lines on bw image
@@ -71,3 +85,8 @@ end
 % xlabel('\theta'), ylabel('\rho');
 % axis on, axis normal, hold on;
 % plot(T(P(:,2)),R(P(:,1)),'s','color','white');
+
+
+
+
+
