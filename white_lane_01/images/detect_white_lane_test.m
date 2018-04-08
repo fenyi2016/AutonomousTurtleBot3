@@ -4,9 +4,12 @@ picNames = dir('*.jpg');
 for i = 1:1
     
 %% Read image
-filename = picNames(i).name;
-img = imread(filename); %read image
-img = img(350:end,:,:);
+% filename = picNames(i).name;
+% img = imread(filename); %read image
+% % img = img(350:end,:,:);
+
+img = imread('sample10.png');
+img = img(0.5*size(img,1):end,:,:);
 
 % hsv_I = rgb2hsv(img);
 % subplot(221); imshow(img)
@@ -14,7 +17,22 @@ img = img(350:end,:,:);
 % subplot(223); imshow(hsv_I(:,:,2))
 % subplot(224); imshow(hsv_I(:,:,3))
 
-
+% [y,x,z]=size(hsv_I);
+% new = zeros(y,x);
+% for i = 1 : y  
+%     for j = 1 : x  
+%         hij = hsv_I(i, j, 1);  
+%         sij = hsv_I(i, j, 2);  
+%         vij = hsv_I(i, j, 3);  
+%         
+%         if ( sij >= 0&& sij<= 0.1 ) && ( vij >= 0.9 && vij <= 1)  
+%             
+%             new(i, j) = hsv_I(i,j,3);   
+%         end  
+%     end  
+% end
+% 
+% imshow(new);
 % imshow(img);
 
 % Turn img to gray
@@ -27,7 +45,16 @@ bw = imbinarize(gray,T);
 
 % Gaussian to remove noise
 bw = double(bw);
-bw_after = imgaussfilt(bw, 20); 
+% bw_after = imgaussfilt(bw, 20); 
+
+bw_after = bw;
+se = strel('disk',4);
+bw_after = imopen(bw,se);
+
+
+% figure
+% subplot(221);imshow(bw); title("Adaptive threshold");
+% subplot(222);imshow(bw_after); title("Use Gaussian filter to remove noise");
 
 
 %% filter out noise by remove darker pixels
@@ -36,7 +63,7 @@ bw_after = imgaussfilt(bw, 20);
 
 
 %% Detect edges
-bw_Canny = edge(bw_after,'Canny',0.6,20); % Detect edges using Canny
+bw_Canny = edge(bw_after,'Canny',0.6,5); % Detect edges using Canny
 % figure
 
 
@@ -46,7 +73,7 @@ bw_Canny = edge(bw_after,'Canny',0.6,20); % Detect edges using Canny
 numpeaks = 7; %Specify the number of peaks
 P  = houghpeaks(H,numpeaks);
 
-lines = houghlines(bw_Canny,T,R,P,'FillGap',200,'MinLength',100);
+lines = houghlines(bw_Canny,T,R,P,'FillGap',100,'MinLength',10);
 
 % % 
 % figure(1); 
@@ -55,7 +82,7 @@ lines = houghlines(bw_Canny,T,R,P,'FillGap',200,'MinLength',100);
 % figure(2); 
 figure
 subplot(221);imshow(bw); title("Adaptive threshold");
-subplot(222);imshow(bw_after); title("Use Gaussian filter to remove noise");
+subplot(222);imshow(bw_after); title("After removed noise");
 subplot(223);imshow(bw_Canny); title("After canny edge detection");
 subplot(224); imshow(bw_Canny); title('Use Hough transform to detect lines')
 hold on
@@ -78,43 +105,24 @@ for k = 1:length(lines)
    end
 end
 
-hold on
-
-
+% hold on
 % 
-% figure
-% %Show the rho-theta voting
-% subplot(211);
-% imshow(imadjust(mat2gray(H)),'XData',T,'YData',R,...
-%       'InitialMagnification','fit');
-% title('Hough transform results');
-% xlabel('\theta'), ylabel('\rho');
-% axis on, axis normal, hold on;
-% colormap(gca,hot);
+% fprintf('This is the %d picture \n', i);
 % 
-% subplot(212);
-% imshow(H,[],'XData',T,'YData',R,'InitialMagnification','fit');
-% xlabel('\theta'), ylabel('\rho');
-% axis on, axis normal, hold on;
-% plot(T(P(:,2)),R(P(:,1)),'s','color','white');
+% % Find the desired point
+% % We set the desired point to the midpoint of the two intersections 
+% % of y = 250 & y = -cot(theta)*x + csc(theta)*rho
+% if size(lines,2) > 1
+%     x1 = floor((250 - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
+%     x2 = floor((250 - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
+%     x_mid = (x1+x2)/2; 
+%     plot(x_mid, 250, '*', x1, 250, '*', x2, 250, '*' );
+% end
 
-
-fprintf('This is the %d picture \n', i);
-
-% Find the desired point
-% We set the desired point to the midpoint of the two intersections 
-% of y = 250 & y = -cot(theta)*x + csc(theta)*rho
-if size(lines,2) > 1
-x1 = floor((250 - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
-x2 = floor((250 - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
-x_mid = (x1+x2)/2; 
-plot(x_mid, 250, '*', x1, 250, '*', x2, 250, '*' );
-end
-
-pause(1);
-
-
-close all;
+% pause(1);
+% 
+% 
+% close all;
 
 end
 
