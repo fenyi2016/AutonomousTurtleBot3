@@ -21,7 +21,7 @@ end
     image = readImage(image_compressed);
     % imshow(image)
     
-    [YPAng, YPDist, WLDist] = detect_straight_lines(image);
+    [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(image);
 
 %     pause(1); close all;
     
