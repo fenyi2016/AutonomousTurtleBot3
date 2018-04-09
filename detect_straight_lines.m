@@ -96,22 +96,22 @@ end
 
 
 %% Find white lines and compute its angle and Distance
-% LowHsv = rgb2hsv(LowImg);
+LowHsv = rgb2hsv(LowImg);
 
 % This method is easily got tricked by light
-% LowHsvWhite = zeros(nX - Glevel,nY);
-% for i = 1 : (nX - Glevel)  
-%     for j = 1 : nY  
-%         hij = LowHsv(i, j, 1);  
-%         sij = LowHsv(i, j, 2);  
-%         vij = LowHsv(i, j, 3);  
-%         
-%         if  ( sij >= 0 && sij <= 0.3 ) && ( vij >= 0.6 && vij <= 1) % ( hij >= 0.11 && hij<= 0.16 ) &&
-%             
-%             LowHsvWhite(i, j) = true;   % logical value
-%         end  
-%     end  
-% end
+LowHsvWhite = zeros(nX - Glevel,nY);
+for i = 1 : (nX - Glevel)  
+    for j = 1 : nY  
+        hij = LowHsv(i, j, 1);  
+        sij = LowHsv(i, j, 2);  
+        vij = LowHsv(i, j, 3);  
+        
+        if  ( sij >= 0 && sij <= 0.3 ) && ( vij >= 0.6 && vij <= 1) % ( hij >= 0.11 && hij<= 0.16 ) &&
+            
+            LowHsvWhite(i, j) = true;   % logical value
+        end  
+    end  
+end
 
 % subplot(221); imshow(LowImg);
 % subplot(222); imshow(LowHsv(:,:,1))
@@ -135,7 +135,7 @@ if sum(sum(LowBW,1)) > 0
     
     LowBWOpen = LowBW;
     % Use open function to remove noise
-    se = strel('disk', 3);
+    se = strel('disk', 5);
     LowBWOpen = imopen(LowBW, se);
 
     % new = LowBWOpen;
@@ -158,7 +158,7 @@ if sum(sum(LowBW,1)) > 0
     P  = houghpeaks(H,numpeaks);
 
 %     lines = houghlines(LowBWCanny,T,R,P,'FillGap',70,'MinLength',100);
-    lines = houghlines(LowBWCanny,T,R,P,'FillGap',30,'MinLength',50);
+    lines = houghlines(LowBWCanny,T,R,P,'FillGap',20,'MinLength',50);
 
 
     %% Calculate mid point

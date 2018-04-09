@@ -22,8 +22,10 @@ end
     % imshow(image)
     
     [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(image);
+    
+    
 
-%     pause(1); close all;
+%     pause(3); close all;
     
     % Publish distance info
     
