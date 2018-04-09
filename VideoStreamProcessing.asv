@@ -37,10 +37,9 @@ while(1)
     camMsg.Angular.X = WLDist;
     camMsg.Angular.Y = WLAng;
     camMsg.Angular.Z = 0;
-    send(camPub, camMsg);
     
     disp(YPDist);
     
-%     pause(3);
+    pause(3);
     
 end
