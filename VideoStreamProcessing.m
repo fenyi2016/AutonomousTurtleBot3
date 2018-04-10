@@ -16,7 +16,7 @@ camPub = rospublisher('/telemetry', 'geometry_msgs/Twist');
 camMsg = rosmessage(camPub);
 
 %% 
-while(1)
+% while(1)
 
     % Receive image
     image_compressed = receive(image_sub);
@@ -43,4 +43,4 @@ while(1)
     
 %     pause(3);
     
-end
+% end

@@ -1,6 +1,6 @@
-% function [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(img)
+function [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(img)
 
-clearvars -except img
+% clearvars -except img
 
 %% Calculate distance between camera and object
 % Flag
@@ -17,7 +17,7 @@ resolutionRatio = 8;
 % to detect yellow poles and white lines
 [nX, nY, ~] = size(img);
 
-Glevel = 200;   % for 410*308, it's 180
+Glevel = 180;   % for 410*308, it's 180
 Midlevel = (nX - Glevel) - 60;
 
 
@@ -96,7 +96,7 @@ end
 
 
 %% Find white lines and compute its angle and Distance
-LowImg = histeq(LowImg);
+% LowImg = histeq(LowImg);
 LowHsv = rgb2hsv(LowImg);
 
 % This method is easily got tricked by light
@@ -136,8 +136,8 @@ if sum(sum(LowBW,1)) > 0
     
     LowBWOpen = LowBW;
     % Use open function to remove noise
-    se = strel('disk', 5);
-    LowBWOpen = imopen(LowBW, se);
+%     se = strel('disk', 5);
+%     LowBWOpen = imopen(LowBW, se);
 
     % new = LowBWOpen;
     % 
@@ -205,7 +205,7 @@ else
 end
 
 
-% Plot
+% % Plot
 
 figure
 subplot(221); imshow(HighImg);
@@ -254,6 +254,6 @@ if IsWLDetected
     
 end
 
-% end
+end
 
 
