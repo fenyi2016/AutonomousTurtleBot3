@@ -6,6 +6,7 @@ function [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(img)
 % Flag
 IsYPDetected = false;
 IsWLDetected = false;
+IsPlotting = true;
 
 % Assuming the height of camera is 0.127m
 camHeight = 0.127; % meter
@@ -17,8 +18,8 @@ resolutionRatio = 8;
 % to detect yellow poles and white lines
 [nX, nY, ~] = size(img);
 
-Glevel = 180;   % for 410*308, it's 180
-Midlevel = (nX - Glevel) - 60;
+Glevel = 165;   % for 410*308, it's 180
+Midlevel = floor((nX - Glevel)/2);
 
 
 %% Crop the image to increase the speed
@@ -58,12 +59,11 @@ HighBWHsv = bitand(HighBWHsv, HighImgYellow);
 HighBWBiggestObj = bwareafilt(HighBWHsv,1); % find the biggest object
 
 % Get the position of the middle bottom point of yellow pole
-HighBWCanny = edge(HighBWBiggestObj, 'Canny');
+HighBWCanny = edge(HighBWBiggestObj, 'canny');
 
-if sum(sum(HighBWHsv,1)) > 0
+if sum(sum(HighBWHsv,1)) > 0 && bwarea(HighBWBiggestObj) > 30
     
-    IsYPDetected = true;
-    
+
     SumCanny = sum(HighBWCanny,2);
     YPTop = find(SumCanny>0, 1, 'first'); % Find the top index
     YPBottom = find(SumCanny>0, 1, 'last'); % Find the bottom index
@@ -81,6 +81,8 @@ if sum(sum(HighBWHsv,1)) > 0
     % Calculate the distance between yellow pole and camera
     rowDiff = abs(YPPoint(1) - nX/2);
     YPDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+    
+    IsYPDetected = true;
     
 else
     
@@ -136,8 +138,8 @@ if sum(sum(LowBW,1)) > 0
     
     LowBWOpen = LowBW;
     % Use open function to remove noise
-%     se = strel('disk', 5);
-%     LowBWOpen = imopen(LowBW, se);
+    se = strel('disk', 3);
+    LowBWOpen = imopen(LowBW, se);
 
     % new = LowBWOpen;
     % 
@@ -149,7 +151,7 @@ if sum(sum(LowBW,1)) > 0
 
 
     %% Detect edges
-    LowBWCanny = edge(LowBWOpen,'Canny', 0.6, 5); % Detect edges using Canny
+    LowBWCanny = edge(LowBWOpen,'Prewitt'); % Detect edges using Canny
 
 
     %% Detect lines using hough transform
@@ -159,7 +161,7 @@ if sum(sum(LowBW,1)) > 0
     P  = houghpeaks(H,numpeaks);
 
 %     lines = houghlines(LowBWCanny,T,R,P,'FillGap',70,'MinLength',100);
-    lines = houghlines(LowBWCanny,T,R,P,'FillGap',20,'MinLength',50);
+    lines = houghlines(LowBWCanny,T,R,P,'FillGap',15,'MinLength',70);
 
 
     %% Calculate mid point
@@ -172,6 +174,12 @@ if sum(sum(LowBW,1)) > 0
         % Calculate the angle between white line and y axis
         % -x to +y to x, means -90 to 0 to 90 deg
         WLAng = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
+        
+        WLPoint = [Midlevel + Glevel, WLMid];
+
+        % Calculate the distance between white line middle point and camera
+        rowDiff = abs(WLPoint(1) - nX/2);
+        WLDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
 
     elseif size(lines,2) == 1
         WLLeft = floor((Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
@@ -179,20 +187,24 @@ if sum(sum(LowBW,1)) > 0
         WLMid = WLLeft;
 
         WLAng = lines(1).theta/180*pi;
+        
+        WLPoint = [Midlevel + Glevel, WLMid];
+
+        % Calculate the distance between white line middle point and camera
+        rowDiff = abs(WLPoint(1) - nX/2);
+        WLDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
 
     else
         WLLeft = -1;
         WLRight = -1;
         WLMid = -1;
         WLAng = -1;
+        
+        WLDist = -1;
 
     end
-
-    WLPoint = [Midlevel, WLMid];
-
-    % Calculate the distance between white line middle point and camera
-    rowDiff = abs(WLPoint(1) - nX/2);
-    WLDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+    
+    
 
 else
     
@@ -206,6 +218,10 @@ end
 
 
 % % Plot
+
+if ~IsPlotting
+    return
+end
 
 figure
 subplot(221); imshow(HighImg);
@@ -221,10 +237,11 @@ end
 figure
 subplot(221);imshow(LowImg); 
 subplot(222);imshow(LowBW); 
-subplot(223);imshow(LowBWOpen); 
+
 
 if IsWLDetected
     
+    subplot(223);imshow(LowBWOpen); 
     subplot(224);imshow(LowBWCanny); 
     hold on
 
@@ -253,6 +270,9 @@ if IsWLDetected
     hold off
     
 end
+
+%     info = [YPDist, YPAng , WLDist, WLAng];
+%     disp(info);
 
 end
 

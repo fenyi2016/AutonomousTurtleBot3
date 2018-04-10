@@ -16,7 +16,7 @@ camPub = rospublisher('/telemetry', 'geometry_msgs/Twist');
 camMsg = rosmessage(camPub);
 
 %% 
-% while(1)
+while(1)
 
     % Receive image
     image_compressed = receive(image_sub);
@@ -39,8 +39,9 @@ camMsg = rosmessage(camPub);
     camMsg.Angular.Z = 0;
     send(camPub, camMsg);
     
-    disp(YPDist);
+    info = [YPDist, YPAng , WLDist, WLAng];
+    disp(info);
     
-%     pause(3);
+    pause(1); close all;
     
-% end
+end
