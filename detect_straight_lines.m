@@ -1,11 +1,11 @@
-function [YPDist, YPAng , WLDist, WLAng] = detect_straight_lines(img)
+function [YellowPillarDist, YellowPillarAng , WhiteLineDist, WhiteLineAng] = detect_straight_lines(img)
 
 % clearvars -except img
 
-%% Calculate distance between camera and object
+%% Initialize
 % Flag
-IsYPDetected = false;
-IsWLDetected = false;
+IsYellowPillarDetected = false;
+IsWhiteLineDetected = false;
 IsPlotting = true;
 
 % Assuming the height of camera is 0.127m
@@ -19,7 +19,7 @@ resolutionRatio = 8;
 [nX, nY, ~] = size(img);
 
 Glevel = 165;   % for 410*308, it's 180
-Midlevel = floor((nX - Glevel)/2);
+Midline = nY/2;
 
 
 %% Crop the image to increase the speed
@@ -61,36 +61,37 @@ HighBWBiggestObj = bwareafilt(HighBWHsv,1); % find the biggest object
 % Get the position of the middle bottom point of yellow pole
 HighBWCanny = edge(HighBWBiggestObj, 'canny');
 
-if sum(sum(HighBWHsv,1)) > 0 && bwarea(HighBWBiggestObj) > 30
+if bwarea(HighBWBiggestObj) < 30
     
-
-    SumCanny = sum(HighBWCanny,2);
-    YPTop = find(SumCanny>0, 1, 'first'); % Find the top index
-    YPBottom = find(SumCanny>0, 1, 'last'); % Find the bottom index
-
-    SumCanny = sum(HighBWCanny,1);
-    YPLeft = find(SumCanny>0, 1, 'first'); % Find the left index
-    YPRight = find(SumCanny>0, 1, 'last'); % Find the right index
-
-    YPPoint = [YPBottom, (YPLeft + YPRight)/2];
-
-    % Calculate the angle between yellow and image center
-    FOV = 60; % Assuming FOV is 60 deg
-    YPAng = (YPPoint(2) - nY/2)/nY*FOV;
-
-    % Calculate the distance between yellow pole and camera
-    rowDiff = abs(YPPoint(1) - nX/2);
-    YPDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+    IsYellowPillarDetected = false;
     
-    IsYPDetected = true;
+    YellowPillarPoint = [-1,-1];
+    YellowPillarAng = -1;
+    YellowPillarDist = -1;
+    
     
 else
     
-    IsYPDetected = false;
+    SumCanny = sum(HighBWCanny,2);
+    YellowPillarTop = find(SumCanny>0, 1, 'first'); % Find the top index
+    YellowPillarBottom = find(SumCanny>0, 1, 'last'); % Find the bottom index
+
+    SumCanny = sum(HighBWCanny,1);
+    YellowPillarLeft = find(SumCanny>0, 1, 'first'); % Find the left index
+    YellowPillarRight = find(SumCanny>0, 1, 'last'); % Find the right index
+
+    YellowPillarPoint = [YellowPillarBottom, (YellowPillarLeft + YellowPillarRight)/2];
+
+    % Calculate the angle between yellow and image center
+    FOV = 60; % Assuming FOV is 60 deg
+    YellowPillarAng = (YellowPillarPoint(2) - nY/2)/nY*FOV;
+
+    % Calculate the distance between yellow pole and camera
+    rowDiff = abs(YellowPillarPoint(1) - nX/2);
+    YellowPillarDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
     
-    YPPoint = [-1,-1];
-    YPAng = -1;
-    YPDist = -1;
+    IsYellowPillarDetected = true;
+
     
 end
 
@@ -131,90 +132,87 @@ LowBW = imbinarize(gray, T);
 % Filter out non white part
 LowBW = bitand(LowBW, LowHsvWhite);
 
-if sum(sum(LowBW,1)) > 0 
+LowBWOpen = LowBW;
+% Use open function to remove noise
+se = strel('disk', 3);
+LowBWOpen = imopen(LowBW, se);
+
+% new = LowBWOpen;
+% 
+% CC = bwconncomp(LowBWOpen);
+% numPixels = cellfun(@numel,CC.PixelIdxList);
+% [biggest,idx] = max(numPixels);
+% LowBWOpen(CC.PixelIdxList{idx}) = 0;
+% LowBWOpen = imsubtract(new, LowBWOpen);
+
+
+%% Detect edges
+LowBWCanny = edge(LowBWOpen,'Prewitt'); % Detect edges using Canny
+
+
+%% Detect lines using hough transform
+[H,T,R] = hough(LowBWCanny,'RhoResolution',0.5,'ThetaResolution',0.5);
+
+numpeaks = 7; %Specify the number of peaks
+P  = houghpeaks(H,numpeaks);
+
+% lines = houghlines(LowBWCanny,T,R,P,'FillGap',70,'MinLength',100);
+lines = houghlines(LowBWCanny,T,R,P,'FillGap',15,'MinLength',70);
+
+if sum(sum(LowBW,1)) < 0 || size(lines,2) == 0
     
-    IsWLDetected = true;
-
-    
-    LowBWOpen = LowBW;
-    % Use open function to remove noise
-    se = strel('disk', 3);
-    LowBWOpen = imopen(LowBW, se);
-
-    % new = LowBWOpen;
-    % 
-    % CC = bwconncomp(LowBWOpen);
-    % numPixels = cellfun(@numel,CC.PixelIdxList);
-    % [biggest,idx] = max(numPixels);
-    % LowBWOpen(CC.PixelIdxList{idx}) = 0;
-    % LowBWOpen = imsubtract(new, LowBWOpen);
-
-
-    %% Detect edges
-    LowBWCanny = edge(LowBWOpen,'Prewitt'); % Detect edges using Canny
-
-
-    %% Detect lines using hough transform
-    [H,T,R] = hough(LowBWCanny,'RhoResolution',0.5,'ThetaResolution',0.5);
-
-    numpeaks = 7; %Specify the number of peaks
-    P  = houghpeaks(H,numpeaks);
-
-%     lines = houghlines(LowBWCanny,T,R,P,'FillGap',70,'MinLength',100);
-    lines = houghlines(LowBWCanny,T,R,P,'FillGap',15,'MinLength',70);
-
-
-    %% Calculate mid point
-    if size(lines,2) > 1  % if there is two lines or more
+        IsWhiteLineDetected = false;
         
-        WLLeft = floor((Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
-        WLRight = floor((Midlevel - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
-        WLMid = (WLLeft+WLRight)/2; 
-
-        % Calculate the angle between white line and y axis
-        % -x to +y to x, means -90 to 0 to 90 deg
-        WLAng = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
+        WhiteLineHighPoint = -1;
+        WhiteLineLowPoint = -1;
+        WhiteLineMidPoint = [-1,-1];
         
-        WLPoint = [Midlevel + Glevel, WLMid];
-
-        % Calculate the distance between white line middle point and camera
-        rowDiff = abs(WLPoint(1) - nX/2);
-        WLDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
-
-    elseif size(lines,2) == 1
-        WLLeft = floor((Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
-        WLRight = WLLeft;
-        WLMid = WLLeft;
-
-        WLAng = lines(1).theta/180*pi;
-        
-        WLPoint = [Midlevel + Glevel, WLMid];
-
-        % Calculate the distance between white line middle point and camera
-        rowDiff = abs(WLPoint(1) - nX/2);
-        WLDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
-
-    else
-        WLLeft = -1;
-        WLRight = -1;
-        WLMid = -1;
-        WLAng = -1;
-        
-        WLDist = -1;
-
-    end
-    
-    
+        WhiteLineAng = -1;
+        WhiteLineDist = -1; 
 
 else
     
-    IsWLDetected = false;
+    IsWhiteLineDetected = true;
     
-    WLPoint = [-1, -1];
-    WLDist = -1;
-    WLAng = -1;
+    % Calculate mid point
+    if size(lines,2) > 1 % if there is two lines or more
+     
+        % WhiteLineLeft = floor((Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
+        % WhiteLineRight = floor((Midlevel - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
+        WhiteLineHighPoint = -cot(lines(1).theta/180*pi)*Midline + csc(lines(1).theta/180*pi)*lines(1).rho;
+        WhiteLineLowPoint = -cot(lines(2).theta/180*pi)*Midline + csc(lines(2).theta/180*pi)*lines(2).rho;
+        
+        WhiteLineMidPoint = [(WhiteLineHighPoint+WhiteLineLowPoint)/2 + Glevel, Midline]; 
+
+        % Calculate the angle between white line and y axis
+        % -x to +y to x, means -90 to 0 to 90 deg
+        WhiteLineAng = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
+
+        % Calculate the distance between white line middle point and camera
+        rowDiff = abs(WhiteLineMidPoint(1) - nX/2);
+        WhiteLineDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+
+    elseif size(lines,2) == 1
+        
+        WhiteLineHighPoint = -cot(lines(1).theta/180*pi)*Midline + csc(lines(1).theta/180*pi)*lines(1).rho;
+        WhiteLineLowPoint = WhiteLineHighPoint;
+        WhiteLineMidPoint = [(WhiteLineHighPoint+WhiteLineLowPoint)/2 + Glevel, Midline];
+
+        WhiteLineAng = lines(1).theta/180*pi;
+        
+        % Calculate the distance between white line middle point and camera
+        rowDiff = abs(WhiteLineMidPoint(1) - nX/2);
+        WhiteLineDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+        
+    end
+    
+    if ( WhiteLineHighPoint > nX || WhiteLineHighPoint < 0 ) || ( WhiteLineLowPoint > nX || WhiteLineLowPoint < 0 )
+        WhiteLineDist = -1;
+    end
     
 end
+
+
 
 
 % % Plot
@@ -226,10 +224,10 @@ end
 figure
 subplot(221); imshow(HighImg);
 subplot(222); imshow(HighImgYellow);
-if IsYPDetected
+if IsYellowPillarDetected
     subplot(223); imshow(HighBWBiggestObj);
     subplot(224); imshow(HighBWCanny); 
-    hold on; plot( YPPoint(2), YPPoint(1),'*'); hold off;
+    hold on; plot( YellowPillarPoint(2), YellowPillarPoint(1),'*'); hold off;
 end
 
 
@@ -237,9 +235,7 @@ end
 figure
 subplot(221);imshow(LowImg); 
 subplot(222);imshow(LowBW); 
-
-
-if IsWLDetected
+if IsWhiteLineDetected
     
     subplot(223);imshow(LowBWOpen); 
     subplot(224);imshow(LowBWCanny); 
@@ -263,15 +259,15 @@ if IsWLDetected
        end
     end
 
-    if WLMid > 0
-        plot(WLMid, Midlevel, '*', WLLeft, Midlevel, '*', WLRight, Midlevel, '*' );
+    if WhiteLineMidPoint > 0
+        plot(Midline, WhiteLineMidPoint(1)-Glevel, '*', Midline, WhiteLineHighPoint,'*', Midline, WhiteLineLowPoint,'*' );
     end
 
     hold off
     
 end
 
-%     info = [YPDist, YPAng , WLDist, WLAng];
+%     info = [YellowPillarDist, YellowPillarAng , WhiteLineDist, WhiteLineAng];
 %     disp(info);
 
 end
