@@ -1,4 +1,4 @@
-function [YellowPillarDist, YellowPillarAng , WhiteLineDist, WhiteLineAng] = detect_straight_lines(img)
+function [YellowPillarDist, YellowPillarAng , IsArrieved, WhiteLineDist, WhiteLineAng, WhiteLineAng2] = detect_straight_lines(img)
 
 % clearvars -except img
 
@@ -13,17 +13,20 @@ camHeight = 0.127; % meter
 focalLen = 0.00304;
 SizeOfPixel = 1.12e-6;
 resolutionRatio = 8;
+FOV = deg2rad(62.2); % FOV is 62.2 deg
 
 % Process above ground and on the ground part seperately
 % to detect yellow poles and white lines
 [nX, nY, ~] = size(img);
 
-Glevel = 165;   % for 410*308, it's 180
+Glevel = 180;   % for 410*308, it's 180
+HighGlevel = Glevel+20;
 Midline = nY/2;
+Midlevel = (nX-Glevel)/2;
 
 
 %% Crop the image to increase the speed
-HighImg = img(1:Glevel,:,:);
+HighImg = img(1:HighGlevel,:,:);
 LowImg = img(Glevel+1:end,:,:);
 
 
@@ -32,8 +35,8 @@ LowImg = img(Glevel+1:end,:,:);
 HighImgHsv = rgb2hsv(HighImg);
 
 % Make sure yellow pole is detected
-HighImgYellow = false(Glevel,nY);
-for i = 1 : Glevel  
+HighImgYellow = false(HighGlevel,nY);
+for i = 1 : HighGlevel  
     for j = 1 : nY  
         hij = HighImgHsv(i, j, 1);  
         sij = HighImgHsv(i, j, 2);  
@@ -61,6 +64,12 @@ HighBWBiggestObj = bwareafilt(HighBWHsv,1); % find the biggest object
 % Get the position of the middle bottom point of yellow pole
 HighBWCanny = edge(HighBWBiggestObj, 'canny');
 
+if bwarea(HighBWBiggestObj) > 10000
+    IsArrieved = 1;
+else
+    IsArrieved = -1;
+end
+
 if bwarea(HighBWBiggestObj) < 30
     
     IsYellowPillarDetected = false;
@@ -83,7 +92,6 @@ else
     YellowPillarPoint = [YellowPillarBottom, (YellowPillarLeft + YellowPillarRight)/2];
 
     % Calculate the angle between yellow and image center
-    FOV = 60; % Assuming FOV is 60 deg
     YellowPillarAng = (YellowPillarPoint(2) - nY/2)/nY*FOV;
 
     % Calculate the distance between yellow pole and camera
@@ -168,6 +176,7 @@ if sum(sum(LowBW,1)) < 0 || size(lines,2) == 0
         WhiteLineMidPoint = [-1,-1];
         
         WhiteLineAng = -1;
+        WhiteLineAng2 = -1;
         WhiteLineDist = -1; 
 
 else
@@ -177,20 +186,21 @@ else
     % Calculate mid point
     if size(lines,2) > 1 % if there is two lines or more
      
-        % WhiteLineLeft = floor((Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi)));
-        % WhiteLineRight = floor((Midlevel - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi)));
+        % Calculate the distance between white line middle point and camera
         WhiteLineHighPoint = -cot(lines(1).theta/180*pi)*Midline + csc(lines(1).theta/180*pi)*lines(1).rho;
         WhiteLineLowPoint = -cot(lines(2).theta/180*pi)*Midline + csc(lines(2).theta/180*pi)*lines(2).rho;
         
         WhiteLineMidPoint = [(WhiteLineHighPoint+WhiteLineLowPoint)/2 + Glevel, Midline]; 
+        rowDiff = abs(WhiteLineMidPoint(1) - nX/2);
+        WhiteLineDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
 
         % Calculate the angle between white line and y axis
         % -x to +y to x, means -90 to 0 to 90 deg
-        WhiteLineAng = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
-
-        % Calculate the distance between white line middle point and camera
-        rowDiff = abs(WhiteLineMidPoint(1) - nX/2);
-        WhiteLineDist = (camHeight * focalLen)/(rowDiff * SizeOfPixel * resolutionRatio);
+        % WhiteLineAng = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
+        WhiteLineLeft = (Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi));
+        WhiteLineRight = (Midlevel - csc(lines(2).theta/180*pi)*lines(2).rho)/(-cot(lines(2).theta/180*pi));
+        WhiteLineAng = ((WhiteLineLeft+WhiteLineRight)/2 - nY/2)/nY*FOV;
+        WhiteLineAng2 = (lines(1).theta/180*pi + lines(2).theta/180*pi)/2;  % radian
 
     elseif size(lines,2) == 1
         
@@ -198,7 +208,10 @@ else
         WhiteLineLowPoint = WhiteLineHighPoint;
         WhiteLineMidPoint = [(WhiteLineHighPoint+WhiteLineLowPoint)/2 + Glevel, Midline];
 
-        WhiteLineAng = lines(1).theta/180*pi;
+        WhiteLineLeft = (Midlevel - csc(lines(1).theta/180*pi)*lines(1).rho)/(-cot(lines(1).theta/180*pi));
+        WhiteLineRight = WhiteLineLeft;
+        WhiteLineAng = ((WhiteLineLeft+WhiteLineRight)/2 - nY/2)/nY*FOV;
+        WhiteLineAng2 = (lines(1).theta/180*pi)/2;  % radian
         
         % Calculate the distance between white line middle point and camera
         rowDiff = abs(WhiteLineMidPoint(1) - nX/2);
@@ -208,6 +221,10 @@ else
     
     if ( WhiteLineHighPoint > nX || WhiteLineHighPoint < 0 ) || ( WhiteLineLowPoint > nX || WhiteLineLowPoint < 0 )
         WhiteLineDist = -1;
+    end
+    
+    if WhiteLineAng > FOV/2 || WhiteLineAng < -FOV/2
+        WhiteLineAng = -1;
     end
     
 end
@@ -223,21 +240,21 @@ end
 
 figure
 subplot(221); imshow(HighImg);
-subplot(222); imshow(HighImgYellow);
+% subplot(222); imshow(HighImgYellow);
 if IsYellowPillarDetected
-    subplot(223); imshow(HighBWBiggestObj);
-    subplot(224); imshow(HighBWCanny); 
+%     subplot(223); imshow(HighBWBiggestObj);
+    subplot(222); imshow(HighBWCanny); 
     hold on; plot( YellowPillarPoint(2), YellowPillarPoint(1),'*'); hold off;
 end
 
 
 
-figure
-subplot(221);imshow(LowImg); 
-subplot(222);imshow(LowBW); 
+% figure
+subplot(223);imshow(LowImg); 
+% subplot(222);imshow(LowBW); 
 if IsWhiteLineDetected
     
-    subplot(223);imshow(LowBWOpen); 
+%     subplot(223);imshow(LowBWOpen); 
     subplot(224);imshow(LowBWCanny); 
     hold on
 
